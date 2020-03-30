@@ -1,0 +1,75 @@
+version: '2'
+services:
+  # MongoDB: https://hub.docker.com/_/mongo/
+  mongodb:
+    image: mongo:3
+  #DB in share for persistence
+    volumes:
+       - mongodb_graylog:/data/db
+  # Elasticsearch: https://www.elastic.co/guide/en/elasticsearch/reference/6.6/docker.html
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.6.1
+    #data folder in share for persistence
+    volumes:
+      - elasticsearchdata_graylog:/usr/share/elasticsearch/data
+    environment:
+      - http.host=0.0.0.0
+      - transport.host=localhost
+      - network.host=0.0.0.0
+      - node.max_local_storage_nodes=4
+      - "ES_JAVA_OPTS=-Xms1512m -Xmx1512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    mem_limit: 3g
+  # Graylog: https://hub.docker.com/r/graylog/graylog/
+  graylog:
+#    image: graylog/graylog:3.1.4
+    image: graylog/graylog:3.2.4
+    #journal and config directories in local NFS share for persistence
+    volumes:
+       - 'journal_graylog:/usr/share/graylog/data/journal'
+       - 'config_graylog:/usr/share/graylog/data/config'
+    environment:
+      # CHANGE ME (must be at least 16 characters)!
+      - GRAYLOG_PASSWORD_SECRET=xx
+      # Password: admin
+      - GRAYLOG_ROOT_PASSWORD_SHA2=aa0ced31a1ebe6c508c4ab0b2e67374c8f21cb8ec9019e96a3c87a0b7a0d703a
+      - GRAYLOG_HTTP_BIND_ADDRESS=0.0.0.0:7555
+      - GRAYLOG_HTTP_EXTERNAL_URI=https://xxx.com/
+      - GRAYLOG_TRANSPORT_EMAIL_WEB_INTERFACE_URL=http://xxxxxx:7555
+      - GRAYLOG_TRANSPORT_EMAIL_HOSTNAME=smtp.example.com
+      - GRAYLOG_TRANSPORT_EMAIL_ENABLED=true
+      - GRAYLOG_TRANSPORT_EMAIL_PORT=25
+      - GRAYLOG_TRANSPORT_EMAIL_USE_AUTH=false
+      - GRAYLOG_TRANSPORT_EMAIL_USE_TLS=false
+      - GRAYLOG_TRANSPORT_EMAIL_USE_SSL=false
+      - GRAYLOG_TRANSPORT_FROM_EMAIL=youremail@yourdomain.com
+      - GRAYLOG_TRANSPORT_SUBJECT_PREFIX=[graylog]
+    links:
+      - mongodb:mongo
+      - elasticsearch
+    depends_on:
+      - mongodb
+      - elasticsearch
+    ports:
+      # Graylog web interface and REST API
+      - 127.0.0.1:7555:7555
+      # Syslog TCP
+      - 127.0.0.1:8514:8514
+      # Syslog UDP
+      - 127.0.0.1:8514:8514/udp
+      # GELF TCP
+      - 127.0.0.1:12201:12201
+      # GELF UDP
+      - 127.0.0.1:12201:12201/udp
+volumes:
+  journal_graylog:
+    external: true
+  config_graylog:
+    external: true
+  mongodb_graylog:
+    external: true
+  elasticsearchdata_graylog:
+    external: true
